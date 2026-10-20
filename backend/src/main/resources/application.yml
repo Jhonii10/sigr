@@ -1,0 +1,41 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: sigr
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/sigr}
+    username: ${DB_USER:sigr}
+    password: ${DB_PASSWORD:sigr}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: America/Bogota
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: America/Bogota
+
+sigr:
+  jwt:
+    secret: ${JWT_SECRET:cambie-esta-clave-por-una-de-al-menos-32-caracteres}
+    expiracion-minutos: ${JWT_EXPIRACION_MIN:480}
+  admin:
+    email: ${SIGR_ADMIN_EMAIL:admin@sigr.local}
+    password: ${SIGR_ADMIN_PASSWORD:Admin123*}
+  cors:
+    origenes: ${CORS_ORIGENES:http://localhost:5173}
+  reservas:
+    duracion-minutos: 120
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
