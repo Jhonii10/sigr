@@ -95,6 +95,7 @@ public class ReservaService {
 
   List<Mesa> mesasLibres(LocalDate fecha, LocalTime hora, int personas) {
     return mesas.findByCapacidadGreaterThanEqualOrderByCapacidadAscNumeroAsc(personas).stream()
+        .filter(m -> !haySolapamiento(m, fecha, hora))
         .toList();
   }
 
