@@ -2,7 +2,7 @@
 
 ## 1. Obtener la versión de la línea base
 ```bash
-git clone https://github.com/equipoX/sigr.git
+git clone https://github.com/Jhonii10/sigr.git
 cd sigr
 git checkout v1.0.0
 ```

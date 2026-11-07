@@ -1,5 +1,7 @@
 # SIGR – Sistema Integral de Gestión de Restaurante
 
+![versión](https://img.shields.io/badge/versión-1.0.0-blue) ![licencia](https://img.shields.io/badge/licencia-MIT-green)
+
 Aplicación web para gestionar pedidos, reservas, menú, caja y reportes.
 
 | Módulo | Elemento de configuración | Funcionalidad |
@@ -18,7 +20,7 @@ Aplicación web para gestionar pedidos, reservas, menú, caja y reportes.
 
 ## Ejecución rápida
 ```bash
-git clone https://github.com/equipoX/sigr.git
+git clone https://github.com/Jhonii10/sigr.git
 cd sigr
 cp .env.example .env        # edite JWT_SECRET y las contraseñas
 docker compose up -d --build
@@ -55,7 +57,7 @@ cd frontend && npm run lint  # ESLint
 | GET/POST | `/api/pedidos` · PATCH `/api/pedidos/{id}/estado` | MESERO, ADMIN |
 | GET | `/api/reservas/disponibilidad` · POST `/api/reservas` · GET `/api/reservas/mias` | autenticado |
 | GET | `/api/reservas?fecha=` | MESERO, ADMIN |
-| GET `/api/caja/actual` · POST `/api/caja/abrir`, `/pagos`, `/cerrar` · GET `/api/caja/reporte` | | ADMIN |
+| GET | `/api/caja/actual`, `/api/caja/reporte` · POST `/api/caja/abrir`, `/api/caja/pagos`, `/api/caja/cerrar` | ADMIN |
 | GET/POST | `/api/usuarios` | ADMIN |
 
 Tablero en tiempo real: STOMP sobre `ws://<host>/api/ws`, tópico `/topic/pedidos`.
@@ -65,4 +67,16 @@ Tablero en tiempo real: STOMP sobre `ws://<host>/api/ws`, tópico `/topic/pedido
 - Commits: Conventional Commits (`feat(pedidos): ...`, `fix(reservas): ...`).
 - Versiones: SemVer. Línea base inicial **LB-01 = v1.0.0**.
 
-Documentación adicional en [`docs/`](docs/).
+## Documentación
+- [Manual de despliegue](docs/manual-despliegue.md)
+- [Modelo de datos](docs/modelo-datos.md)
+- [Historial de cambios](CHANGELOG.md)
+
+## Versión
+**v1.0.0** — Línea base LB-01 (2026-11-06). Ver [CHANGELOG.md](CHANGELOG.md).
+
+## Autor
+**Jhoni Ipia** — [@Jhonii10](https://github.com/Jhonii10)
+
+## Licencia
+Distribuido bajo licencia MIT. Ver [LICENSE.txt](LICENSE.txt).
