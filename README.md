@@ -7,8 +7,8 @@ Aplicación web para gestionar pedidos, reservas, menú, caja y reportes.
 | Módulo | Elemento de configuración | Funcionalidad |
 |---|---|---|
 | Autenticación | EC-01 | Login con JWT; roles cliente, mesero y administrador |
-| Menú digital | EC-02 | CRUD de platos y categorías; menú público |
-| Pedidos | EC-03 | Registro por mesa y seguimiento en tiempo real (WebSocket) |
+| Menú digital | EC-02 | CRUD de platos y categorías con foto; menú público |
+| Pedidos | EC-03 | Pedidos del cliente desde el menú o del mesero por mesa; seguimiento en tiempo real (WebSocket) |
 | Reservas | EC-04 | Reservas por fecha y hora con validación de disponibilidad |
 | Caja y reportes | EC-05 | Apertura, cobro, cierre de caja y reporte diario en PDF |
 
@@ -53,10 +53,12 @@ cd frontend && npm run lint  # ESLint
 |---|---|---|
 | POST | `/api/auth/login`, `/api/auth/registro` | público |
 | GET | `/api/menu/categorias`, `/api/menu/platos` | público |
-| POST/PUT/DELETE | `/api/menu/categorias/**`, `/api/menu/platos/**` | ADMIN |
-| GET/POST | `/api/pedidos` · PATCH `/api/pedidos/{id}/estado` | MESERO, ADMIN |
+| GET | `/api/menu/imagenes/{archivo}` | público |
+| POST/PUT/DELETE | `/api/menu/categorias/**`, `/api/menu/platos/**` · POST/DELETE `/api/menu/platos/{id}/imagen` | ADMIN |
+| POST | `/api/pedidos` · GET `/api/pedidos/mios` | autenticado |
+| GET | `/api/pedidos` · PATCH `/api/pedidos/{id}/estado` | MESERO, ADMIN |
 | GET | `/api/reservas/disponibilidad` · POST `/api/reservas` · GET `/api/reservas/mias` | autenticado |
-| GET | `/api/reservas?fecha=` | MESERO, ADMIN |
+| GET | `/api/reservas?desde=` (próximas) · `/api/reservas?fecha=` (un día) | MESERO, ADMIN |
 | GET | `/api/caja/actual`, `/api/caja/reporte` · POST `/api/caja/abrir`, `/api/caja/pagos`, `/api/caja/cerrar` | ADMIN |
 | GET/POST | `/api/usuarios` | ADMIN |
 

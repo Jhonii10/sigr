@@ -9,6 +9,7 @@ Las tablas se crean con las migraciones Flyway de `backend/src/main/resources/db
 | V3__mesas_pedidos.sql | Tablas `mesa`, `pedido`, `detalle_pedido` + 8 mesas |
 | V4__reservas.sql | Tabla `reserva` |
 | V5__caja_pagos.sql | Tablas `caja` y `pago` |
+| V6__pedidos_cliente.sql | `pedido.cliente_id` y `mesero_id` opcional |
 
 | Tabla | Campos principales | Relaciones |
 |---|---|---|
@@ -16,7 +17,7 @@ Las tablas se crean con las migraciones Flyway de `backend/src/main/resources/db
 | categoria | id, nombre, descripcion | 1:N plato |
 | plato | id, categoria_id, nombre, precio, disponible, imagen_url | N:1 categoria |
 | mesa | id, numero, capacidad, estado | 1:N pedido, 1:N reserva |
-| pedido | id, mesa_id, mesero_id, estado, total, nota, creado_en | N:1 mesa, N:1 usuario |
+| pedido | id, mesa_id, mesero_id, cliente_id, estado, total, nota, creado_en | N:1 mesa, N:1 usuario (mesero), N:1 usuario (cliente) |
 | detalle_pedido | id, pedido_id, plato_id, cantidad, precio_unitario | N:1 pedido, N:1 plato |
 | reserva | id, cliente_id, mesa_id, fecha, hora, personas, estado | N:1 usuario, N:1 mesa |
 | caja | id, fecha, monto_apertura, monto_cierre, usuario_id, estado | N:1 usuario |
@@ -38,6 +39,8 @@ erDiagram
 
 ## Reglas de negocio
 - Estados del pedido: RECIBIDO → EN_PREPARACION → LISTO → ENTREGADO → PAGADO (PAGADO solo desde caja). Se puede cancelar en RECIBIDO o EN_PREPARACION.
+- Un cliente solo puede pedir en una mesa libre o en la que ya tiene pedidos activos; el mesero queda asignado cuando el personal cambia el estado.
+- Las fotos de los platos se guardan en el volumen `sigr-imagenes` (`/app/data/imagenes`).
 - El precio del plato se congela en `detalle_pedido.precio_unitario`.
 - Una reserva bloquea la mesa 120 minutos; horario de reservas 11:00–21:00.
 - Solo puede existir una caja ABIERTA. Al cerrar: `monto_cierre = monto_apertura + pagos en efectivo`.
