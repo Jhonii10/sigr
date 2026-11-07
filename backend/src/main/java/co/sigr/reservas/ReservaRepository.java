@@ -14,4 +14,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
   @EntityGraph(attributePaths = {"mesa", "cliente"})
   List<Reserva> findByFechaOrderByHoraAsc(LocalDate fecha);
+
+  @EntityGraph(attributePaths = {"mesa", "cliente"})
+  List<Reserva> findByFechaGreaterThanEqualOrderByFechaAscHoraAsc(LocalDate desde);
 }
