@@ -21,6 +21,10 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: America/Bogota
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 sigr:
   jwt:
@@ -33,6 +37,8 @@ sigr:
     origenes: ${CORS_ORIGENES:http://localhost:5173}
   reservas:
     duracion-minutos: 120
+  imagenes:
+    directorio: ${SIGR_IMAGENES_DIR:data/imagenes}
 
 management:
   endpoints:

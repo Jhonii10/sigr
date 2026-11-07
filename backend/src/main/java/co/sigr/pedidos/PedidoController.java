@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/pedidos")
-@PreAuthorize("hasAnyRole('MESERO','ADMIN')")
 public class PedidoController {
 
   private final PedidoService service;
@@ -29,11 +28,19 @@ public class PedidoController {
   }
 
   @GetMapping
+  @PreAuthorize("hasAnyRole('MESERO','ADMIN')")
   public List<PedidoDto> activos() {
     return service.activos();
   }
 
+  /** Pedidos que el cliente autenticado hizo desde el menú. */
+  @GetMapping("/mios")
+  public List<PedidoDto> mios(Principal principal) {
+    return service.delCliente(principal.getName());
+  }
+
   @GetMapping("/{id}")
+  @PreAuthorize("hasAnyRole('MESERO','ADMIN')")
   public PedidoDto obtener(@PathVariable Long id) {
     return service.obtener(id);
   }
@@ -45,8 +52,10 @@ public class PedidoController {
   }
 
   @PatchMapping("/{id}/estado")
+  @PreAuthorize("hasAnyRole('MESERO','ADMIN')")
   public PedidoDto cambiarEstado(@PathVariable Long id,
-                                 @Valid @RequestBody CambioEstadoRequest req) {
-    return service.cambiarEstado(id, req.estado());
+                                 @Valid @RequestBody CambioEstadoRequest req,
+                                 Principal principal) {
+    return service.cambiarEstado(id, req.estado(), principal.getName());
   }
 }

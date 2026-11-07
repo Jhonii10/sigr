@@ -16,6 +16,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
@@ -47,6 +49,16 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ErrorDto> solicitudMalformada(Exception ex) {
     return ResponseEntity.badRequest()
         .body(ErrorDto.de("Solicitud inválida: revise el formato de los datos enviados"));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ErrorDto> archivoMuyGrande(MaxUploadSizeExceededException ex) {
+    return ResponseEntity.badRequest().body(ErrorDto.de("La imagen no puede superar 5 MB"));
+  }
+
+  @ExceptionHandler(MissingServletRequestPartException.class)
+  public ResponseEntity<ErrorDto> archivoFaltante(MissingServletRequestPartException ex) {
+    return ResponseEntity.badRequest().body(ErrorDto.de("Seleccione una imagen"));
   }
 
   @ExceptionHandler(NoResourceFoundException.class)

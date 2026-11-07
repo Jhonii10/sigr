@@ -2,7 +2,9 @@ package co.sigr.integracion;
 
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -170,5 +173,92 @@ class FlujoRestauranteIntegracionTest {
 
     mvc.perform(get("/mesas").header("Authorization", admin))
         .andExpect(jsonPath("$[2].estado").value("LIBRE"));
+  }
+
+  @Test
+  @Order(7)
+  void clientePideDesdeElMenuYElPersonalLoAtiende() throws Exception {
+    String cliente = login("ana@test.com", "Cliente123");
+    String creado = mvc.perform(post("/pedidos").header("Authorization", cliente)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mesaId\":1,\"items\":[{\"platoId\":1,\"cantidad\":2}]}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.cliente").value("Ana Cliente"))
+        .andExpect(jsonPath("$.mesero").doesNotExist())
+        .andExpect(jsonPath("$.total").value(18000.0))
+        .andReturn().getResponse().getContentAsString();
+    long pedidoId = leer(creado).get("id").asLong();
+
+    mvc.perform(get("/pedidos/mios").header("Authorization", cliente))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(1)))
+        .andExpect(jsonPath("$[0].id").value(pedidoId));
+    mvc.perform(get("/pedidos").header("Authorization", cliente))
+        .andExpect(status().isForbidden());
+    mvc.perform(patch("/pedidos/" + pedidoId + "/estado").header("Authorization", cliente)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"EN_PREPARACION\"}"))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(post("/auth/registro").contentType(MediaType.APPLICATION_JSON)
+            .content("{\"nombre\":\"Pedro Cliente\",\"email\":\"pedro@test.com\","
+                + "\"password\":\"Cliente123\"}"))
+        .andExpect(status().isCreated());
+    String otroCliente = login("pedro@test.com", "Cliente123");
+    mvc.perform(post("/pedidos").header("Authorization", otroCliente)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"mesaId\":1,\"items\":[{\"platoId\":2,\"cantidad\":1}]}"))
+        .andExpect(status().isBadRequest());
+
+    String mesero = login("luis@test.com", "Mesero123");
+    mvc.perform(patch("/pedidos/" + pedidoId + "/estado").header("Authorization", mesero)
+            .contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"EN_PREPARACION\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.mesero").value("Luis Mesero"))
+        .andExpect(jsonPath("$.cliente").value("Ana Cliente"));
+  }
+
+  @Test
+  @Order(8)
+  void adminSubeFotoDelPlatoYEsPublica() throws Exception {
+    String admin = login("admin@sigr.local", "Admin123*");
+    byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+    String respuesta = mvc.perform(multipart("/menu/platos/1/imagen")
+            .file(new MockMultipartFile("archivo", "foto.png", "image/png", png))
+            .header("Authorization", admin))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.imagenUrl").value(startsWith("/api/menu/imagenes/plato-1-")))
+        .andReturn().getResponse().getContentAsString();
+    String url = leer(respuesta).get("imagenUrl").asText();
+
+    mvc.perform(get(url.substring("/api".length())))
+        .andExpect(status().isOk())
+        .andExpect(content().contentType(MediaType.IMAGE_PNG))
+        .andExpect(content().bytes(png));
+
+    mvc.perform(multipart("/menu/platos/1/imagen")
+            .file(new MockMultipartFile("archivo", "foto.png", "image/png", "no es imagen".getBytes()))
+            .header("Authorization", admin))
+        .andExpect(status().isBadRequest());
+    mvc.perform(multipart("/menu/platos/1/imagen")
+            .file(new MockMultipartFile("archivo", "foto.png", "image/png", png))
+            .header("Authorization", login("ana@test.com", "Cliente123")))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/menu/imagenes/..%2F..%2Fpom.xml"))
+        .andExpect(status().is4xxClientError());
+    mvc.perform(get("/menu/imagenes/application.yml"))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  @Order(9)
+  void personalVeLasProximasReservas() throws Exception {
+    String admin = login("admin@sigr.local", "Admin123*");
+    mvc.perform(get("/reservas").header("Authorization", admin))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$", hasSize(1)))
+        .andExpect(jsonPath("$[0].cliente").value("Ana Cliente"));
+    mvc.perform(get("/reservas").param("fecha", LocalDate.now().toString())
+            .header("Authorization", admin))
+        .andExpect(jsonPath("$", hasSize(0)));
   }
 }

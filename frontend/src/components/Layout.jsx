@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const ENLACES = [
   { a: '/menu', texto: 'Menú' },
+  { a: '/mis-pedidos', texto: 'Mis pedidos', roles: ['CLIENTE'] },
   { a: '/reservas', texto: 'Reservas', roles: ['CLIENTE', 'MESERO', 'ADMIN'] },
   { a: '/pedidos', texto: 'Pedidos', roles: ['MESERO', 'ADMIN'] },
   { a: '/caja', texto: 'Caja', roles: ['ADMIN'] },

@@ -50,11 +50,18 @@ public class ReservaController {
     return service.mias(principal.getName());
   }
 
+  /** Con {@code fecha} devuelve las reservas de ese día; con {@code desde}, las de ahí en adelante. */
   @GetMapping
   @PreAuthorize("hasAnyRole('MESERO','ADMIN')")
-  public List<ReservaDto> delDia(
-      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-    return service.delDia(fecha);
+  public List<ReservaDto> listar(
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+      LocalDate fecha,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+      LocalDate desde) {
+    if (fecha != null) {
+      return service.delDia(fecha);
+    }
+    return service.desde(desde != null ? desde : LocalDate.now());
   }
 
   @PatchMapping("/{id}/cancelar")

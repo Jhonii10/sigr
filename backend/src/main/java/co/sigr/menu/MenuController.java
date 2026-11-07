@@ -5,7 +5,13 @@ import co.sigr.menu.MenuDtos.CategoriaRequest;
 import co.sigr.menu.MenuDtos.PlatoDto;
 import co.sigr.menu.MenuDtos.PlatoRequest;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import java.util.List;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -25,9 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MenuController {
 
   private final MenuService service;
+  private final ImagenService imagenes;
 
-  public MenuController(MenuService service) {
+  public MenuController(MenuService service, ImagenService imagenes) {
     this.service = service;
+    this.imagenes = imagenes;
   }
 
   @GetMapping("/categorias")
@@ -82,5 +90,28 @@ public class MenuController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void eliminarPlato(@PathVariable Long id) {
     service.eliminarPlato(id);
+  }
+
+  @PostMapping(path = "/platos/{id}/imagen", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PreAuthorize("hasRole('ADMIN')")
+  public PlatoDto subirImagen(@PathVariable Long id,
+                              @RequestParam("archivo") MultipartFile archivo) {
+    return service.subirImagen(id, archivo);
+  }
+
+  @DeleteMapping("/platos/{id}/imagen")
+  @PreAuthorize("hasRole('ADMIN')")
+  public PlatoDto quitarImagen(@PathVariable Long id) {
+    return service.quitarImagen(id);
+  }
+
+  /** Foto pública de un plato. Los nombres llevan un identificador único, así que se cachean. */
+  @GetMapping("/imagenes/{nombre:.+}")
+  public ResponseEntity<Resource> imagen(@PathVariable String nombre) {
+    Resource archivo = imagenes.leer(nombre);
+    return ResponseEntity.ok()
+        .contentType(imagenes.tipo(nombre))
+        .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+        .body(archivo);
   }
 }
