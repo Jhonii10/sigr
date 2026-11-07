@@ -18,7 +18,7 @@ export default function Login() {
     setEnviando(true);
     try {
       const u = await iniciarSesion(form.email, form.password);
-      const inicio = u.rol === 'CLIENTE' ? '/reservas' : u.rol === 'MESERO' ? '/pedidos' : '/caja';
+      const inicio = u.rol === 'CLIENTE' ? '/menu' : u.rol === 'MESERO' ? '/pedidos' : '/caja';
       navigate(location.state?.desde || inicio, { replace: true });
     } catch (err) {
       setError(mensajeError(err));

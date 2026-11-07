@@ -78,6 +78,13 @@ public class ReservaService {
     return reservas.findByFechaOrderByHoraAsc(fecha).stream().map(ReservaDto::de).toList();
   }
 
+  /** Reservas desde la fecha indicada en adelante, para que el personal vea las próximas. */
+  @Transactional(readOnly = true)
+  public List<ReservaDto> desde(LocalDate fecha) {
+    return reservas.findByFechaGreaterThanEqualOrderByFechaAscHoraAsc(fecha).stream()
+        .map(ReservaDto::de).toList();
+  }
+
   @Transactional
   public ReservaDto cancelar(Long id, String emailSolicitante) {
     Reserva r = reservas.findById(id).orElseThrow(() -> new NoEncontradoException("Reserva", id));

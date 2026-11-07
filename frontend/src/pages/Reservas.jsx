@@ -51,23 +51,30 @@ export default function Reservas() {
   const [form, setForm] = useState({ fecha: hoyISO(1), hora: '19:00', personas: 2, mesaId: '' });
   const [mesas, setMesas] = useState([]);
   const [mias, setMias] = useState([]);
-  const [fechaDia, setFechaDia] = useState(hoyISO());
-  const [delDia, setDelDia] = useState([]);
+  const [desde, setDesde] = useState(hoyISO());
+  const [proximas, setProximas] = useState([]);
+  const [consultado, setConsultado] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
   const cargarMias = useCallback(() => {
     api.get('/reservas/mias').then((r) => setMias(r.data)).catch(() => {});
   }, []);
 
-  const cargarDelDia = useCallback(() => {
+  const cargarProximas = useCallback(() => {
     if (!esPersonal) return;
-    api.get('/reservas', { params: { fecha: fechaDia } })
-      .then((r) => setDelDia(r.data))
+    api.get('/reservas', { params: { desde } })
+      .then((r) => setProximas(r.data))
       .catch((err) => setMensaje({ tipo: 'error', texto: mensajeError(err) }));
-  }, [esPersonal, fechaDia]);
+  }, [esPersonal, desde]);
 
   useEffect(() => { cargarMias(); }, [cargarMias]);
-  useEffect(() => { cargarDelDia(); }, [cargarDelDia]);
+  useEffect(() => { cargarProximas(); }, [cargarProximas]);
+
+  const cambiarForm = (campo, valor) => {
+    setForm((f) => ({ ...f, [campo]: valor }));
+    setMesas([]);
+    setConsultado(false);
+  };
 
   const consultar = async () => {
     setMensaje(null);
@@ -76,6 +83,7 @@ export default function Reservas() {
         params: { fecha: form.fecha, hora: form.hora, personas: form.personas },
       });
       setMesas(data);
+      setConsultado(true);
       setForm((f) => ({ ...f, mesaId: data[0]?.id ?? '' }));
       if (data.length === 0) setMensaje({ tipo: 'warning', texto: 'No hay mesas disponibles para esa franja.' });
     } catch (err) {
@@ -89,8 +97,9 @@ export default function Reservas() {
       const { data } = await api.post('/reservas', { ...form, personas: Number(form.personas), mesaId: form.mesaId || null });
       setMensaje({ tipo: 'success', texto: `Reserva confirmada: mesa ${data.mesa}, ${data.fecha} a las ${data.hora}.` });
       setMesas([]);
+      setConsultado(false);
       cargarMias();
-      cargarDelDia();
+      cargarProximas();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: mensajeError(err) });
     }
@@ -100,7 +109,7 @@ export default function Reservas() {
     try {
       await api.patch(`/reservas/${id}/cancelar`);
       cargarMias();
-      cargarDelDia();
+      cargarProximas();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: mensajeError(err) });
     }
@@ -116,34 +125,40 @@ export default function Reservas() {
           <Grid item xs={12} sm={3}>
             <TextField fullWidth type="date" label="Fecha" InputLabelProps={{ shrink: true }}
               inputProps={{ min: hoyISO() }} value={form.fecha}
-              onChange={(e) => { setForm({ ...form, fecha: e.target.value }); setMesas([]); }} />
+              onChange={(e) => cambiarForm('fecha', e.target.value)} />
           </Grid>
           <Grid item xs={6} sm={2}>
             <TextField fullWidth type="time" label="Hora" InputLabelProps={{ shrink: true }}
               inputProps={{ min: '11:00', max: '21:00', step: 900 }} value={form.hora}
-              onChange={(e) => { setForm({ ...form, hora: e.target.value }); setMesas([]); }} />
+              onChange={(e) => cambiarForm('hora', e.target.value)} />
           </Grid>
           <Grid item xs={6} sm={2}>
             <TextField fullWidth type="number" label="Personas" inputProps={{ min: 1, max: 20 }} value={form.personas}
-              onChange={(e) => { setForm({ ...form, personas: e.target.value }); setMesas([]); }} />
+              onChange={(e) => cambiarForm('personas', e.target.value)} />
           </Grid>
-          <Grid item xs={12} sm={2}>
-            <Button fullWidth variant="outlined" onClick={consultar}>Disponibilidad</Button>
+          <Grid item xs={12} sm={5}>
+            <Button fullWidth size="large" variant={consultado ? 'outlined' : 'contained'} onClick={consultar}>
+              1. Ver mesas disponibles
+            </Button>
           </Grid>
-          {mesas.length > 0 && (
-            <>
-              <Grid item xs={12} sm={2}>
-                <TextField fullWidth select label="Mesa" value={form.mesaId}
+        </Grid>
+        {mesas.length > 0 && (
+          <Alert severity="info" icon={false} sx={{ mt: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={5}>
+                <TextField fullWidth select size="small" label="Mesa" value={form.mesaId}
                   onChange={(e) => setForm({ ...form, mesaId: e.target.value })}>
-                  {mesas.map((m) => <MenuItem key={m.id} value={m.id}>Mesa {m.numero} ({m.capacidad} p.)</MenuItem>)}
+                  {mesas.map((m) => <MenuItem key={m.id} value={m.id}>Mesa {m.numero} ({m.capacidad} personas)</MenuItem>)}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={1}>
-                <Button fullWidth variant="contained" color="secondary" onClick={reservar}>Reservar</Button>
+              <Grid item xs={12} sm={7}>
+                <Button fullWidth size="large" variant="contained" color="secondary" onClick={reservar}>
+                  2. Confirmar reserva · {form.fecha} a las {form.hora}
+                </Button>
               </Grid>
-            </>
-          )}
-        </Grid>
+            </Grid>
+          </Alert>
+        )}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           Horario de reservas: 11:00 a 21:00. Cada reserva bloquea la mesa durante 2 horas.
         </Typography>
@@ -157,10 +172,11 @@ export default function Reservas() {
       {esPersonal && (
         <Paper sx={{ p: 2 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="h6">Reservas del día</Typography>
-            <TextField size="small" type="date" value={fechaDia} onChange={(e) => setFechaDia(e.target.value)} />
+            <Typography variant="h6">Próximas reservas</Typography>
+            <TextField size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }}
+              value={desde} onChange={(e) => setDesde(e.target.value)} />
           </Stack>
-          <TablaReservas reservas={delDia} onCancelar={cancelar} mostrarCliente />
+          <TablaReservas reservas={proximas} onCancelar={cancelar} mostrarCliente />
         </Paper>
       )}
     </Box>

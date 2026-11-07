@@ -9,8 +9,9 @@ RUN mvn -B -q clean package -DskipTests
 # Etapa 2: ejecución
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-RUN useradd --system --uid 1001 sigr
+RUN useradd --system --uid 1001 sigr && mkdir -p /app/data/imagenes && chown -R sigr /app/data
 COPY --from=build /app/target/sigr-backend-1.0.0.jar app.jar
+ENV SIGR_IMAGENES_DIR=/app/data/imagenes
 USER sigr
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

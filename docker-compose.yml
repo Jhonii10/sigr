@@ -28,6 +28,8 @@ services:
       SIGR_ADMIN_PASSWORD: ${SIGR_ADMIN_PASSWORD}
       CORS_ORIGENES: http://localhost:5173
       TZ: America/Bogota
+    volumes:
+      - sigr-imagenes:/app/data/imagenes
     ports:
       - "8080:8080"
 
@@ -40,3 +42,4 @@ services:
 
 volumes:
   sigr-data:
+  sigr-imagenes:
