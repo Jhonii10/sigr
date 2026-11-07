@@ -11,3 +11,5 @@ sigr:
   admin:
     email: admin@sigr.local
     password: Admin123*
+  imagenes:
+    directorio: target/test-imagenes
