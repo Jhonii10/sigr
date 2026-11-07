@@ -1,5 +1,7 @@
 package co.sigr.pedidos;
 
+import co.sigr.auth.Rol;
+import co.sigr.auth.Usuario;
 import co.sigr.auth.UsuarioService;
 import co.sigr.common.NegocioException;
 import co.sigr.common.NoEncontradoException;
@@ -48,13 +50,29 @@ public class PedidoService {
     return PedidoDto.de(pedido(id));
   }
 
+  @Transactional(readOnly = true)
+  public List<PedidoDto> delCliente(String emailCliente) {
+    return pedidos.findByClienteEmailIgnoreCaseOrderByCreadoEnDesc(emailCliente).stream()
+        .map(PedidoDto::de).toList();
+  }
+
+  /**
+   * Registra un pedido. Si lo hace el personal queda como mesero; si lo hace un cliente desde
+   * el menú queda como cliente, y solo puede pedir en una mesa libre o en la que ya tiene pedidos.
+   */
   @Transactional
-  public PedidoDto crear(CrearPedidoRequest req, String emailMesero) {
+  public PedidoDto crear(CrearPedidoRequest req, String emailSolicitante) {
     Mesa mesa = mesas.findById(req.mesaId())
         .orElseThrow(() -> new NoEncontradoException("Mesa", req.mesaId()));
+    Usuario solicitante = usuarios.porEmail(emailSolicitante);
     Pedido p = new Pedido();
     p.setMesa(mesa);
-    p.setMesero(usuarios.porEmail(emailMesero));
+    if (solicitante.getRol() == Rol.CLIENTE) {
+      validarMesaParaCliente(mesa, solicitante);
+      p.setCliente(solicitante);
+    } else {
+      p.setMesero(solicitante);
+    }
     p.setNota(req.nota());
     for (ItemRequest item : req.items()) {
       Plato plato = menu.plato(item.platoId());
@@ -71,13 +89,16 @@ public class PedidoService {
   }
 
   @Transactional
-  public PedidoDto cambiarEstado(Long id, EstadoPedido destino) {
+  public PedidoDto cambiarEstado(Long id, EstadoPedido destino, String emailPersonal) {
     Pedido p = pedido(id);
     if (!p.getEstado().puedeCambiarA(destino)) {
       throw new NegocioException("No se puede pasar un pedido de " + p.getEstado()
           + " a " + destino);
     }
     p.setEstado(destino);
+    if (p.getMesero() == null) {
+      p.setMesero(usuarios.porEmail(emailPersonal));
+    }
     if (destino == EstadoPedido.CANCELADO) {
       liberarMesaSiCorresponde(p);
     }
@@ -97,6 +118,17 @@ public class PedidoService {
     liberarMesaSiCorresponde(p);
     publicar(PedidoDto.de(p));
     return p;
+  }
+
+  private void validarMesaParaCliente(Mesa mesa, Usuario cliente) {
+    boolean atendidaPorOtro =
+        pedidos.existsByMesaIdAndEstadoInAndClienteIsNull(mesa.getId(), ACTIVOS)
+        || pedidos.existsByMesaIdAndEstadoInAndClienteIdNot(mesa.getId(), ACTIVOS,
+            cliente.getId());
+    if (atendidaPorOtro) {
+      throw new NegocioException("La mesa " + mesa.getNumero()
+          + " ya tiene pedidos de otras personas. Pídale el pedido al mesero.");
+    }
   }
 
   private void liberarMesaSiCorresponde(Pedido p) {

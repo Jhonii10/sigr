@@ -9,16 +9,20 @@ import co.sigr.menu.MenuDtos.PlatoRequest;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class MenuService {
 
   private final CategoriaRepository categorias;
   private final PlatoRepository platos;
+  private final ImagenService imagenes;
 
-  public MenuService(CategoriaRepository categorias, PlatoRepository platos) {
+  public MenuService(CategoriaRepository categorias, PlatoRepository platos,
+                     ImagenService imagenes) {
     this.categorias = categorias;
     this.platos = platos;
+    this.imagenes = imagenes;
   }
 
   @Transactional(readOnly = true)
@@ -76,6 +80,24 @@ public class MenuService {
     return PlatoDto.de(p);
   }
 
+  /** Reemplaza la foto del plato y borra la anterior si estaba guardada en el servidor. */
+  @Transactional
+  public PlatoDto subirImagen(Long id, MultipartFile archivo) {
+    Plato p = plato(id);
+    String anterior = p.getImagenUrl();
+    p.setImagenUrl(imagenes.guardar(id, archivo));
+    imagenes.eliminarSiEsLocal(anterior);
+    return PlatoDto.de(p);
+  }
+
+  @Transactional
+  public PlatoDto quitarImagen(Long id) {
+    Plato p = plato(id);
+    imagenes.eliminarSiEsLocal(p.getImagenUrl());
+    p.setImagenUrl(null);
+    return PlatoDto.de(p);
+  }
+
   /** Los platos con pedidos asociados no se borran: se marcan como no disponibles. */
   @Transactional
   public void eliminarPlato(Long id) {
@@ -97,6 +119,11 @@ public class MenuService {
     p.setDescripcion(req.descripcion());
     p.setPrecio(req.precio());
     p.setDisponible(req.disponible() == null || req.disponible());
-    p.setImagenUrl(req.imagenUrl());
+    String nueva = req.imagenUrl() == null || req.imagenUrl().isBlank()
+        ? null : req.imagenUrl().trim();
+    if (p.getImagenUrl() != null && !p.getImagenUrl().equals(nueva)) {
+      imagenes.eliminarSiEsLocal(p.getImagenUrl());
+    }
+    p.setImagenUrl(nueva);
   }
 }

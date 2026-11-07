@@ -37,9 +37,15 @@ public class Pedido {
   @JoinColumn(name = "mesa_id")
   private Mesa mesa;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  /** Personal que registra o atiende el pedido. Es nulo mientras nadie atiende un pedido de cliente. */
+  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "mesero_id")
   private Usuario mesero;
+
+  /** Cliente que hizo el pedido desde el menú. Es nulo en los pedidos tomados por el personal. */
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "cliente_id")
+  private Usuario cliente;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)

@@ -1,5 +1,6 @@
 package co.sigr.pedidos;
 
+import co.sigr.auth.Usuario;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -37,14 +38,18 @@ public final class PedidoDtos {
     }
   }
 
-  public record PedidoDto(Long id, Integer mesa, String mesero, EstadoPedido estado,
-                          BigDecimal total, String nota, LocalDateTime creadoEn,
-                          List<DetalleDto> detalles) {
+  public record PedidoDto(Long id, Integer mesa, String mesero, String cliente,
+                          EstadoPedido estado, BigDecimal total, String nota,
+                          LocalDateTime creadoEn, List<DetalleDto> detalles) {
 
     public static PedidoDto de(Pedido p) {
-      return new PedidoDto(p.getId(), p.getMesa().getNumero(), p.getMesero().getNombre(),
-          p.getEstado(), p.getTotal(), p.getNota(), p.getCreadoEn(),
+      return new PedidoDto(p.getId(), p.getMesa().getNumero(), nombre(p.getMesero()),
+          nombre(p.getCliente()), p.getEstado(), p.getTotal(), p.getNota(), p.getCreadoEn(),
           p.getDetalles().stream().map(DetalleDto::de).toList());
+    }
+
+    private static String nombre(Usuario u) {
+      return u == null ? null : u.getNombre();
     }
   }
 }

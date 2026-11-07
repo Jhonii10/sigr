@@ -8,11 +8,20 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
-  @EntityGraph(attributePaths = {"mesa", "mesero", "detalles", "detalles.plato"})
+  @EntityGraph(attributePaths = {"mesa", "mesero", "cliente", "detalles", "detalles.plato"})
   List<Pedido> findByEstadoInOrderByCreadoEnAsc(Collection<EstadoPedido> estados);
 
-  @EntityGraph(attributePaths = {"mesa", "mesero", "detalles", "detalles.plato"})
+  @EntityGraph(attributePaths = {"mesa", "mesero", "cliente", "detalles", "detalles.plato"})
   Optional<Pedido> findWithDetallesById(Long id);
+
+  @EntityGraph(attributePaths = {"mesa", "mesero", "cliente", "detalles", "detalles.plato"})
+  List<Pedido> findByClienteEmailIgnoreCaseOrderByCreadoEnDesc(String email);
+
+  boolean existsByMesaIdAndEstadoInAndClienteIdNot(Long mesaId, Collection<EstadoPedido> estados,
+                                                   Long clienteId);
+
+  boolean existsByMesaIdAndEstadoInAndClienteIsNull(Long mesaId,
+                                                    Collection<EstadoPedido> estados);
 
   boolean existsByMesaIdAndEstadoIn(Long mesaId, Collection<EstadoPedido> estados);
 }

@@ -159,7 +159,8 @@ export default function Pedidos() {
                         <Chip size="small" label={`#${p.id}`} />
                       </Stack>
                       <Typography variant="caption" color="text.secondary">
-                        {p.mesero} · {new Date(p.creadoEn).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        {p.cliente ? `Cliente: ${p.cliente}` : p.mesero}
+                        {p.cliente && p.mesero ? ` · ${p.mesero}` : ''} · {new Date(p.creadoEn).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
                       </Typography>
                       {p.detalles.map((d) => (
                         <Typography key={d.platoId} variant="body2">{d.cantidad} × {d.plato}</Typography>

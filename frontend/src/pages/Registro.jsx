@@ -15,7 +15,7 @@ export default function Registro() {
     setError('');
     try {
       await registrarse(form);
-      navigate('/reservas', { replace: true });
+      navigate('/menu', { replace: true });
     } catch (err) {
       setError(mensajeError(err));
     }
