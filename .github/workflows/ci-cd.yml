@@ -1,0 +1,99 @@
+# Orquestador del pipeline CI/CD de SIGR.
+# Etapas: build → (test ∥ security) → package → deploy → tag (solo main).
+# Modelo de ramas → entorno:
+#   PR (feature/*, hotfix/*) → sin despliegue (build, pruebas y seguridad)
+#   develop → desarrollo · release → staging · main → produccion (aprobación manual)
+name: CI/CD
+
+on:
+  push:
+    branches: [develop, release, main]
+  pull_request:
+    branches: [develop, release, main]
+  workflow_dispatch:
+
+# Una sola ejecución por rama: si llega un push nuevo, se cancela la anterior.
+# (deploy.yml revierte el despliegue también cuando la ejecución se cancela).
+concurrency:
+  group: ci-cd-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+# Permisos mínimos por defecto; cada job pide solo lo que necesita.
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+
+  test:
+    name: Pruebas
+    needs: build
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  security:
+    name: Seguridad
+    needs: build
+    uses: ./.github/workflows/security.yml
+
+  package:
+    name: Empaquetado
+    needs: [test, security]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/package.yml
+    with:
+      image-tag: ${{ github.sha }}
+
+  deploy:
+    name: Despliegue
+    needs: package
+    # Solo las ramas de entorno despliegan (un workflow_dispatch desde una feature no despliega).
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref_name == 'develop' || github.ref_name == 'release' || github.ref_name == 'main')
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ github.ref_name == 'main' && 'produccion' || (github.ref_name == 'release' && 'staging' || 'desarrollo') }}
+      image-tag: ${{ github.sha }}
+    secrets: inherit
+
+  tag:
+    name: Etiqueta de versión
+    needs: deploy
+    if: github.event_name != 'pull_request' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Crear etiqueta vX.Y.Z con la versión de backend/pom.xml
+        run: |
+          # Toma el <version> que sigue al artifactId del proyecto (no el del parent).
+          VERSION=$(awk '/<artifactId>sigr-backend<\/artifactId>/{f=1} f && /<version>/{gsub(/.*<version>|<\/version>.*/, ""); print; exit}' backend/pom.xml)
+          if [ -z "$VERSION" ]; then
+            echo "::error::No se pudo leer la versión de backend/pom.xml"
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::notice::La etiqueta ${TAG} ya existe; no se crea de nuevo (suba la versión en pom.xml para una nueva entrega)."
+            echo "Etiqueta **${TAG}** ya existía; sin cambios." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "SIGR ${TAG} desplegado en produccion (${GITHUB_SHA::7})"
+          git push origin "${TAG}"
+          echo "Etiqueta **${TAG}** creada sobre ${GITHUB_SHA::7}." >> "$GITHUB_STEP_SUMMARY"

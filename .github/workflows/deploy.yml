@@ -1,0 +1,101 @@
+# Etapa de despliegue blue-green con Docker en el runner.
+# Flujo: deploy (color inactivo) → smoke de la versión nueva → [staging: k6 + ZAP]
+#        → switch-traffic → smoke de la URL pública. Si algo falla (o se cancela): rollback.
+name: Despliegue
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Entorno destino (desarrollo | staging | produccion)
+        required: true
+        type: string
+      image-tag:
+        description: Etiqueta de las imágenes a desplegar (SHA del commit)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    name: Desplegar en ${{ inputs.environment }}
+    # Con la variable DEPLOY_RUNNER (p. ej. "self-hosted") se usa un servidor propio y el
+    # despliegue persiste entre ejecuciones; por defecto, un runner efímero de GitHub.
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    # El entorno de GitHub aplica sus reglas: en "produccion" exige la aprobación de un revisor.
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.environment == 'produccion' && 'http://localhost:10080' || (inputs.environment == 'staging' && 'http://localhost:9080' || 'http://localhost:8080') }}
+    # Nunca dos despliegues a la vez sobre el mismo entorno.
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    timeout-minutes: 30
+    env:
+      ENTORNO: ${{ inputs.environment }}
+      IMAGE_TAG: ${{ inputs.image-tag }}
+      # Secretos del entorno; si no existen, los scripts usan valores de prueba.
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SIGR_ADMIN_PASSWORD: ${{ secrets.SIGR_ADMIN_PASSWORD }}
+      SIGR_ADMIN_EMAIL: ${{ vars.SIGR_ADMIN_EMAIL || 'admin@sigr.local' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Preparar variables
+        run: |
+          echo "REGISTRY=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          mkdir -p evidencias
+
+      - name: Login a GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Desplegar la versión nueva en el color inactivo
+        run: bash scripts/deploy.sh
+
+      - name: Smoke test de la versión nueva
+        run: bash scripts/smoke-test.sh "http://localhost:${NEXT_PORT}/api" nueva
+
+      - name: Prueba de carga (k6, hora pico)
+        if: inputs.environment == 'staging'
+        run: bash scripts/load-test.sh "http://localhost:${NEXT_PORT}/api"
+
+      - name: Escaneo dinámico (OWASP ZAP baseline)
+        if: inputs.environment == 'staging'
+        run: bash scripts/zap-scan.sh "http://localhost:${NEXT_PORT}/api"
+
+      - name: Cambiar el tráfico al color nuevo
+        run: bash scripts/switch-traffic.sh
+
+      - name: Smoke test de la URL pública
+        run: bash scripts/smoke-test.sh "http://localhost:${PUBLIC_PORT}/api" publica
+
+      - name: Reversión (rollback)
+        if: failure() || cancelled()
+        run: bash scripts/rollback.sh
+
+      - name: Resumen del despliegue
+        if: always()
+        run: |
+          {
+            echo "### Despliegue en ${ENTORNO}"
+            echo "- Versión: \`${IMAGE_TAG::7}\` · color nuevo: \`${NEXT_COLOR:-n/d}\` · puerto público: \`${PUBLIC_PORT:-n/d}\`"
+            echo "- Resultado: **${{ job.status }}**"
+            if [ -f evidencias/rollback.txt ]; then echo; echo '```'; cat evidencias/rollback.txt; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar evidencias
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidencias-${{ inputs.environment }}-${{ github.run_number }}
+          path: evidencias/
+          if-no-files-found: warn
+          retention-days: 30

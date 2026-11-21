@@ -1,0 +1,86 @@
+# Etapa de seguridad: secretos en el historial (Gitleaks) y dependencias vulnerables (Trivy fs).
+name: Seguridad
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gitleaks:
+    name: Secretos (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # historial completo: Gitleaks revisa todos los commits del rango
+
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # Sin permiso de escritura en PR: el hallazgo se ve en el log y en el resumen.
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  trivy:
+    name: Dependencias (Trivy fs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Trivy resuelve las dependencias transitivas del pom.xml leyendo ~/.m2; si no las
+      # encuentra las pide a Maven Central, que limita por IP (HTTP 429) y hace fallar el escaneo.
+      - name: Descargar dependencias Maven para Trivy
+        run: mvn -B -q -f backend/pom.xml dependency:resolve
+
+      - name: Reporte de vulnerabilidades CRITICAL/HIGH/MEDIUM (no bloquea)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          format: table
+          output: trivy-fs-reporte.txt
+          exit-code: '0'
+
+      - name: Agregar el reporte al resumen
+        if: always()
+        run: |
+          {
+            echo "### Trivy fs (CRITICAL, HIGH, MEDIUM con arreglo disponible)"
+            echo '```'
+            cat trivy-fs-reporte.txt 2>/dev/null || echo "Sin reporte"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar reporte de Trivy
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: trivy-fs-reporte
+          path: trivy-fs-reporte.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Bloquear si hay vulnerabilidades CRITICAL
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          format: table
+          exit-code: '1'

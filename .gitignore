@@ -13,6 +13,9 @@ frontend/dist/
 .vscode/
 *.iml
 
+# Evidencias generadas por los scripts de despliegue (se suben como artefacto en CI)
+evidencias/
+
 # Entorno
 .env
 .DS_Store
