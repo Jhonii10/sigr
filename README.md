@@ -65,12 +65,14 @@ cd frontend && npm run lint  # ESLint
 Tablero en tiempo real: STOMP sobre `ws://<host>/api/ws`, tópico `/topic/pedidos`.
 
 ## Convenciones
-- Ramas: `main` (estable, protegida), `develop`, `feature/<id>-<descripcion>`, `hotfix/<id>`.
+- Ramas: `main` (estable, protegida → producción), `release` (candidata → staging), `develop` (integración → desarrollo), `feature/<id>-<descripcion>`, `hotfix/<id>`.
+- CI/CD: GitHub Actions en cada PR y push; ver [pipeline CI/CD](docs/pipeline-ci-cd.md).
 - Commits: Conventional Commits (`feat(pedidos): ...`, `fix(reservas): ...`).
 - Versiones: SemVer. Línea base inicial **LB-01 = v1.0.0**.
 
 ## Documentación
 - [Manual de despliegue](docs/manual-despliegue.md)
+- [Pipeline CI/CD (GitHub Actions, blue-green)](docs/pipeline-ci-cd.md)
 - [Modelo de datos](docs/modelo-datos.md)
 - [Historial de cambios](CHANGELOG.md)
 
