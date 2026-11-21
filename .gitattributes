@@ -1,0 +1,5 @@
+# Los scripts se ejecutan en runners Linux: siempre con fin de línea LF.
+*.sh  text eol=lf
+*.yml text eol=lf
+*.js  text eol=lf
+nginx.conf text eol=lf
