@@ -9,6 +9,15 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore(deps)
+    # Versiones mayores que rompen la compilación: se migran a mano en una rama propia.
+    #  - OpenPDF 3 renombró los paquetes com.lowagie.* → org.openpdf.* (ReporteVentasService).
+    #  - Spring Boot 4 trae Spring Framework 7, Jackson 3 y cambios en los paquetes de pruebas.
+    # Los parches y versiones menores de ambas se siguen proponiendo.
+    ignore:
+      - dependency-name: "com.github.librepdf:openpdf"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
