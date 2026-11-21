@@ -1,0 +1,8 @@
+# Excepciones de Trivy revisadas. Cada una lleva justificación y fecha de vencimiento (exp):
+# al vencer, Trivy vuelve a reportarla y el pipeline se detiene hasta revisarla de nuevo.
+
+# spring-webmvc 6.2.x: el arreglo solo existe en Spring Framework 7.0.9 (Spring Boot 4).
+# SIGR no usa XsltView ni vistas renderizadas por el servidor (es una API REST JSON).
+CVE-2026-47884 exp:2027-03-31
+# SSE con fragmentos de vista: SIGR no expone Server-Sent Events (usa STOMP sobre WebSocket).
+CVE-2026-47890 exp:2027-03-31
