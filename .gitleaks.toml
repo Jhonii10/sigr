@@ -1,0 +1,19 @@
+# Configuración de Gitleaks para SIGR: reglas por defecto + excepciones por ruta.
+title = "SIGR gitleaks"
+
+[extend]
+useDefault = true
+
+# Estos archivos solo contienen valores de ejemplo o de prueba (no son secretos reales):
+#  - application.yml: valores por defecto para desarrollo local; en los entornos se reemplazan
+#    por variables de entorno (secretos de GitHub).
+#  - application-test.yml: clave JWT de las pruebas con H2.
+#  - .env.example: plantilla que se copia a .env (que está en .gitignore).
+# Sintaxis [allowlist] (compatible con las versiones de gitleaks que usa gitleaks-action v2).
+[allowlist]
+description = "Archivos de configuración con valores de ejemplo"
+paths = [
+  '''backend/src/main/resources/application\.yml''',
+  '''backend/src/test/resources/application-test\.yml''',
+  '''(^|/)\.env\.example$''',
+]

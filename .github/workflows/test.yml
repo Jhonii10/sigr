@@ -1,0 +1,106 @@
+# Etapa de pruebas: unitarias + integración (H2 con Flyway), cobertura JaCoCo,
+# SonarCloud opcional y pruebas del frontend (Vitest).
+name: Pruebas
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (mvn verify)
+    runs-on: ubuntu-latest
+    env:
+      # Se expone como variable para poder condicionar el paso de SonarCloud
+      # (los secretos no se pueden usar directamente en un "if").
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # SonarCloud usa el historial para el "blame" y el código nuevo
+
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Pruebas unitarias e integración + cobertura
+        run: mvn -B verify
+
+      - name: Resumen de pruebas
+        if: always()
+        run: |
+          shopt -s nullglob
+          reportes=(target/surefire-reports/TEST-*.xml)
+          if [ ${#reportes[@]} -eq 0 ]; then
+            echo "### Pruebas backend: no se generaron reportes" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Suma los atributos tests/failures/errors/skipped del elemento <testsuite> de cada reporte.
+          read -r total fallos errores omitidas < <(
+            for f in "${reportes[@]}"; do grep -m1 -o '<testsuite [^>]*>' "$f"; done | awk '
+              { for (i = 1; i <= NF; i++) {
+                  if ($i ~ /^tests=/)    { gsub(/[^0-9]/, "", $i); t += $i }
+                  if ($i ~ /^failures=/) { gsub(/[^0-9]/, "", $i); f += $i }
+                  if ($i ~ /^errors=/)   { gsub(/[^0-9]/, "", $i); e += $i }
+                  if ($i ~ /^skipped=/)  { gsub(/[^0-9]/, "", $i); s += $i } } }
+              END { print t+0, f+0, e+0, s+0 }')
+          cobertura="n/d"
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            # Columnas 8 y 9 de jacoco.csv: líneas no cubiertas y cubiertas.
+            cobertura=$(awk -F, 'NR > 1 { m += $8; c += $9 } END { if (m + c > 0) printf "%.1f %%", 100 * c / (m + c) }' target/site/jacoco/jacoco.csv)
+          fi
+          {
+            echo "### Pruebas backend"
+            echo "| Total | Exitosas | Fallidas | Errores | Omitidas | Cobertura de líneas |"
+            echo "|---|---|---|---|---|---|"
+            echo "| $total | $((total - fallos - errores - omitidas)) | $fallos | $errores | $omitidas | $cobertura |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Análisis SonarCloud (opcional, requiere el secreto SONAR_TOKEN)
+        if: env.SONAR_TOKEN != ''
+        run: >-
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.9.0.7382:sonar
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          -Dsonar.qualitygate.wait=true
+
+      - name: Publicar reportes de pruebas y cobertura
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reportes-pruebas-backend
+          path: |
+            backend/target/surefire-reports/
+            backend/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 14
+
+  frontend:
+    name: Frontend (Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm test
